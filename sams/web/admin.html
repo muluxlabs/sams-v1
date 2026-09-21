@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="am">
+<html lang="am" translate="no">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
 <title>የተገኝነት መቆጣጠሪያ ስርዓት</title>
 <style>
   :root{
@@ -289,6 +290,10 @@
       <div class="panel"><h3>የስርዓት ጤና</h3>
         <button class="btn ghost" onclick="health()">አረጋግጥ</button>
         <div id="hOut" class="muted" style="margin-top:10px"></div></div>
+      <div class="panel"><h3>የስርዓት ተጠቃሚዎች</h3>
+        <table><thead><tr><th>የተጠቃሚ ስም</th><th>ስም</th><th>ሚና</th>
+          <th>ሁኔታ</th><th></th></tr></thead>
+          <tbody id="usersBody"></tbody></table></div>
     </section>
   </main>
 </div>
@@ -301,8 +306,11 @@ let ME = null, EMPLOYEES = [], LAST_REPORT = null;
 
 async function api(path, opts){
   const res = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts||{}));
-  if(res.status === 401){ $("shell").classList.remove("on"); $("login").style.display="flex"; throw new Error("auth"); }
   const data = await res.json().catch(()=>({}));
+  if(res.status === 401 && path !== "/api/login"){
+    $("shell").classList.remove("on"); $("login").style.display="flex";
+    throw new Error(data.detail || "እባክዎ እንደገና ይግቡ");
+  }
   if(!res.ok) throw new Error(data.detail || "ስህተት ተከስቷል");
   return data;
 }
@@ -336,7 +344,7 @@ document.querySelectorAll("nav a[data-v]").forEach(a => {
     document.querySelectorAll("main section").forEach(s=>s.classList.add("hide"));
     $("v-"+v).classList.remove("hide");
     ({dashboard:loadDashboard, employees:loadEmployees, leave:loadLeave,
-      workload:loadWorkload, calendar:loadCalendar}[v] || (()=>{}))();
+      workload:loadWorkload, calendar:loadCalendar, admin:loadUsers}[v] || (()=>{}))();
   });
 });
 const toggle = id => $(id).classList.toggle("hide");
@@ -524,6 +532,22 @@ async function calibrate(){
   const d = await api("/api/admin/calibrate", {method:"POST"});
   $("calOut").innerHTML = `መስፈርት፦ <b>${d.threshold}</b> · የስህተት መጠን፦
     ${(d.false_reject_rate*100).toFixed(1)}% · ${esc(d.advice_am)}`;
+}
+const ROLE_LABEL_AM = {viewer:"ተመልካች", hr:"የሰው ሃይል ባለሙያ", admin:"አስተዳዳሪ"};
+async function loadUsers(){
+  const rows = await api("/api/admin/users");
+  $("usersBody").innerHTML = rows.map(u => `<tr>
+    <td>${esc(u.username)}</td><td>${esc(u.display_name_am)}</td>
+    <td>${esc(ROLE_LABEL_AM[u.role] || u.role)}</td>
+    <td>${u.locked
+        ? '<span class="tag bad">ተቆልፏል</span>'
+        : (u.active ? '<span class="tag ok">ንቁ</span>' : '<span class="tag">ቦዝኗል</span>')}</td>
+    <td>${u.locked ? `<button class="btn ghost" onclick="unlockUser(${u.id})">ክፈት</button>` : ""}</td>
+  </tr>`).join("");
+}
+async function unlockUser(id){
+  await api(`/api/admin/users/${id}/unlock`, {method:"POST"});
+  loadUsers();
 }
 async function health(){
   const d = await api("/api/health");

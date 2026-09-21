@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="am">
+<html lang="am" translate="no">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
 <title>የተገኝነት መመዝገቢያ</title>
 <style>
   /* Bundled locally — the machine is offline, so no web font can load. */
@@ -41,6 +42,8 @@
 
   .prompt{font-size:30px; font-weight:600; line-height:1.5; min-height:46px}
   .sub{font-size:19px; color:var(--muted); margin-top:10px; min-height:28px}
+  .pin-link{font-size:16px; color:var(--accent); margin-top:18px; cursor:pointer;
+    text-decoration:underline; text-underline-offset:3px}
 
   .result{padding:26px 20px; border-radius:16px; background:var(--panel);
     border:2px solid var(--line); display:none}
@@ -96,6 +99,7 @@
       <div class="video-wrap" id="videoWrap"><video id="video" autoplay muted playsinline></video></div>
       <div class="prompt" id="prompt">እባክዎ ወደ ካሜራው ይመልከቱ</div>
       <div class="sub" id="sub"></div>
+      <div class="pin-link" id="pinLink" onclick="showPin()">የፒን ኮድ ይጠቀሙ</div>
     </div>
 
     <!-- result -->
@@ -191,8 +195,9 @@ async function startCamera(){
     $("camDot").classList.add("on");
     $("camText").textContent = "ካሜራ ዝግጁ";
   }catch(e){
+    console.error("camera error:", e.name, e.message);
     $("camDot").classList.remove("on");
-    $("camText").textContent = "ካሜራ አልተገኘም";
+    $("camText").textContent = "ካሜራ አልተገኘም (" + e.name + ")";
     $("prompt").textContent = "ካሜራው አልተገኘም። ለአስተዳዳሪ ያሳውቁ።";
     $("sub").textContent = "የፒን ኮድ መጠቀም ይችላሉ";
     showPin();

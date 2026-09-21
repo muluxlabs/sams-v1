@@ -45,6 +45,7 @@ from ..db.connection import (
     last_verified_backup,
     log_backup,
     record_clock_anomaly,
+    transaction,
 )
 from ..i18n.am import all_strings, t
 from ..recognition.engine import FaceGallery, RecognitionUnavailable
@@ -320,7 +321,11 @@ def _register_routes(app: FastAPI) -> None:  # noqa: C901
 
         elif body.image_b64:
             if st.engine is None:
-                return {"ok": False, "message_am": t("kiosk.no_camera")}
+                return {
+                    "ok": False,
+                    "message_am": t("kiosk.no_camera"),
+                    "offer_pin": True,
+                }
             try:
                 import cv2
                 import numpy as np
@@ -346,10 +351,18 @@ def _register_routes(app: FastAPI) -> None:  # noqa: C901
                 cv2.imwrite(str(p), img)
                 image_path = str(p)
             except RecognitionUnavailable:
-                return {"ok": False, "message_am": t("kiosk.no_camera")}
+                return {
+                    "ok": False,
+                    "message_am": t("kiosk.no_camera"),
+                    "offer_pin": True,
+                }
             except Exception:
                 log.exception("punch failed")
-                return {"ok": False, "message_am": t("kiosk.system_error")}
+                return {
+                    "ok": False,
+                    "message_am": t("kiosk.system_error"),
+                    "offer_pin": True,
+                }
         emp = repo.get_employee(st.conn, employee_id)
         if emp is None or not emp["active"]:
             return {"ok": False, "message_am": t("kiosk.inactive")}
@@ -868,6 +881,45 @@ def _register_routes(app: FastAPI) -> None:  # noqa: C901
             else "የፎቶ ጥራት ዝቅተኛ ነው። ሰራተኞችን እንደገና ይመዝግቡ።"
         )
         return stats
+
+    @app.get("/api/admin/users")
+    def list_users(user: dict = Depends(require("manage_users"))) -> list[dict]:
+        st = get_state()
+        now = datetime.now()
+        rows = []
+        for r in st.conn.execute(
+            "SELECT id, username, display_name_am, role, active, "
+            "failed_attempts, locked_until, last_login_at, must_change_pw "
+            "FROM admin_user ORDER BY username"
+        ):
+            row = dict(r)
+            row["locked"] = bool(
+                row["locked_until"] and datetime.fromisoformat(row["locked_until"]) > now
+            )
+            rows.append(row)
+        return rows
+
+    @app.post("/api/admin/users/{user_id}/unlock")
+    def unlock_user(
+        user_id: int, user: dict = Depends(require("manage_users"))
+    ) -> dict:
+        st = get_state()
+        row = st.conn.execute(
+            "SELECT username FROM admin_user WHERE id = ?", (user_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "ተጠቃሚ አልተገኘም")
+        with transaction(st.conn) as cur:
+            cur.execute(
+                "UPDATE admin_user SET failed_attempts = 0, locked_until = NULL "
+                "WHERE id = ?",
+                (user_id,),
+            )
+            repo.audit(
+                cur, user["user_id"], "admin_user.unlock",
+                "admin_user", user_id, note=f"unlocked {row['username']}",
+            )
+        return {"ok": True}
 
     @app.get("/api/admin/audit")
     def audit_log(

@@ -107,9 +107,10 @@ def cmd_seed(db_path: Path) -> None:
     from tests.seed import build_seed
 
     from sams.api import auth
+    from sams.core.ethiopian import EthiopianDate
     from sams.db.connection import connect
 
-    facts = build_seed(db_path, eth_year=2018, n_employees=30)
+    facts = build_seed(db_path, eth_year=EthiopianDate.today().year, n_employees=30)
     conn = connect(db_path)
     # The seeded admin (id 1) is referenced by audit and holiday rows, so it
     # is updated in place rather than deleted — a DELETE trips the foreign
