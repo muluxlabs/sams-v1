@@ -1,0 +1,62 @@
+# SAMS — Smart Employee Attendance Management System
+
+**Client:** Woreda Welkait Administration
+**Vendor:** Mobrahtom Wubie / MBW Next Digital Solutions Initiative
+**Value:** 140,000 ETB fixed, 30/40/30 milestone payments
+**Status as of 2026-09-20:** **v1 built, 251 tests passing.** Ready for on-site enrollment and pilot.
+
+**Build notes & technical analysis:**
+https://claude.ai/code/artifact/f0672436-665d-47ad-9de9-a054daf203cb
+
+**Code:** delivered as `sams-v1.zip` (~8,800 lines).
+
+## Confirmed requirements
+
+- ~30 employees, one attendance station, no branches
+- **Amharic only** — native language of the system, not a translation. English deferred
+- **Ethiopian calendar** throughout, including report month boundaries
+- Hours: 8:30–12:30 and 14:00–17:30 = **7.5h/day expected**
+- **Two punches a day** (in/out). Lunch deducted by *overlap*, not a flat amount
+- **No "late" concept** — the system accounts for hours worked vs expected
+- **Attendance feeds payroll** — hours worked / hours expected drives salary
+- Mon–Fri; Saturday configurable; HR can set ANY date to full/half/off/holiday/event
+- All 30 in one department for now; structure supports more
+- Power cuts 1–2h most days → **laptop station recommended** (battery = UPS)
+- Scope added beyond proposal §12: **leave management + workload balancing**
+
+## The delegation rule (client-specified)
+
+Staff requesting leave may optionally delegate their task. If a supervisor confirms
+it complete, the leave day is **credited as worked** (pay unaffected). Guards added:
+10-day annual cap, max 3 concurrent delegations per person, completion must be
+confirmed, self-confirmation not allowed. All configurable.
+
+## Technical decisions
+
+- Python 3.11, FastAPI on 127.0.0.1, browser kiosk + admin UIs, SQLite WAL + synchronous=FULL
+- Face recognition: InsightFace `buffalo_l` (ArcFace) via ONNX Runtime — **not** dlib
+- Threshold calibrated on the Woreda's own staff; biased toward refusing; PIN fallback mandatory
+- `attendance_event` append-only; corrections supersede; hash-chained; monotonic clock counter
+- Merged Ethiopic+Latin font (`tools/build_font.py`) — see the font bug below
+
+## Three bugs caught during the build
+
+1. Ethiopian leap-year cycle boundary off by one (1095 vs 1096) — shifted every date after ጳጉሜ in leap years
+2. Event days double-counted into "worked hours" instead of credited hours
+3. **Ethiopic-only font had no digits** — every number in every PDF rendered as blank space in a
+   valid-looking file, with no error. Found by looking at the output, not by tests. Suite now
+   extracts PDF text and asserts numbers are present.
+
+## Remaining on-site work
+
+Install the face model; enroll 30 staff (5 photos each, quality-gated); survey lighting at
+the station location at 8:30am; calibrate threshold; enter this year's movable holidays
+(ፋሲካ, ዒድ አል ፈጥር, ዒድ አል አድሃ, መውሊድ); train three people; parallel run against the paper register.
+
+## Open commercial items
+
+- §11 post-deployment support undefined (no duration/scope) — open-ended free support risk
+- §14 acceptance references "agreed system features" with no annex — attach the requirements table
+- Proposal doc errors: p.6 heading misnumbered 5→6; "MBW Next Initiative" vs "MBW NEXT PLC" watermark;
+  blank pp.15–16; cost table splits pp.6–7
+- Leave + workload were §12 "separately priced" — decide deliberately whether to absorb, bill, or trade

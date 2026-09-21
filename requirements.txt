@@ -1,0 +1,20 @@
+# SAMS — core requirements
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.6
+openpyxl>=3.1
+reportlab>=4.0
+numpy>=1.26
+python-multipart>=0.0.9
+
+# Face recognition — install on the deployment machine.
+# Kept separate because everything except the kiosk works without it,
+# and onnxruntime is a large download on a slow connection.
+# insightface>=0.7.3
+# onnxruntime>=1.17
+# opencv-python>=4.9
+
+# Development only
+# pytest>=8.0
+# httpx>=0.27
+# fonttools>=4.50

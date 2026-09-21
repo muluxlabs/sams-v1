@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>የተገኝነት መቆጣጠሪያ ስርዓት</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#ffffff; --line:#dfe5ee; --ink:#1b2430; --muted:#5f6e82;
+    --accent:#2f4a6d; --accent2:#4b8bd6;
+    --ok:#1f7a4d; --ok-bg:#e6f4ec; --warn:#9a6a08; --warn-bg:#fdf3dd;
+    --bad:#9c2f2f; --bad-bg:#fbeaea; --info-bg:#e9f0f9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Noto Sans Ethiopic","Abyssinica SIL","Nyala",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14.5px; line-height:1.55;
+  }
+  button,input,select,textarea{font-family:inherit;font-size:14px}
+
+  /* login */
+  #login{
+    position:fixed; inset:0; background:var(--accent);
+    display:flex; align-items:center; justify-content:center; z-index:50;
+  }
+  #login .box{
+    background:#fff; padding:34px; border-radius:14px; width:min(400px,92vw);
+    box-shadow:0 18px 50px rgba(0,0,0,.28);
+  }
+  #login h1{font-size:19px; margin-bottom:4px}
+  #login p{color:var(--muted); font-size:13px; margin-bottom:20px}
+
+  .field{margin-bottom:14px}
+  .field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px}
+  .field input,.field select,.field textarea{
+    width:100%; padding:9px 11px; border:1px solid var(--line);
+    border-radius:8px; background:#fff;
+  }
+  .btn{
+    background:var(--accent); color:#fff; border:0; padding:9px 17px;
+    border-radius:8px; cursor:pointer; font-weight:600;
+  }
+  .btn:hover{background:#253c59}
+  .btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--line)}
+  .btn.sm{padding:5px 11px;font-size:12.5px}
+  .btn.ok{background:var(--ok)} .btn.bad{background:var(--bad)}
+
+  /* shell */
+  .shell{display:none; min-height:100vh; grid-template-columns:225px 1fr}
+  .shell.on{display:grid}
+  nav{background:var(--accent); color:#fff; padding:18px 0}
+  nav .brand{padding:0 18px 16px; border-bottom:1px solid rgba(255,255,255,.16)}
+  nav .brand b{font-size:15px; display:block}
+  nav .brand span{font-size:12px; opacity:.72}
+  nav a{
+    display:block; padding:10px 18px; color:#dbe6f3; text-decoration:none;
+    cursor:pointer; border-inline-start:3px solid transparent;
+  }
+  nav a:hover{background:rgba(255,255,255,.07)}
+  nav a.on{background:rgba(255,255,255,.14); color:#fff;
+    border-inline-start-color:var(--accent2); font-weight:600}
+  nav .who{margin-top:18px; padding:14px 18px 0; border-top:1px solid rgba(255,255,255,.16);
+    font-size:12.5px; opacity:.85}
+
+  main{padding:22px 26px 60px}
+  .head{display:flex; justify-content:space-between; align-items:flex-end;
+    margin-bottom:18px; flex-wrap:wrap; gap:10px}
+  .head h2{font-size:20px} .head .sub{color:var(--muted); font-size:13px}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px; margin-bottom:18px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:11px;
+    padding:14px 16px}
+  .card .n{font-size:27px; font-weight:700; font-variant-numeric:tabular-nums}
+  .card .l{font-size:12.5px; color:var(--muted)}
+  .card.ok .n{color:var(--ok)} .card.warn .n{color:var(--warn)}
+  .card.bad .n{color:var(--bad)}
+
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:11px;
+    padding:16px; margin-bottom:16px}
+  .panel h3{font-size:15px; margin-bottom:12px}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  th,td{padding:8px 10px; text-align:start; border-bottom:1px solid var(--line)}
+  th{background:#f0f3f8; font-weight:600; font-size:12.5px; color:var(--muted);
+    position:sticky; top:0}
+  tbody tr:hover{background:#f7f9fc}
+  .scroll{max-height:62vh; overflow:auto; border:1px solid var(--line); border-radius:9px}
+  .num{font-variant-numeric:tabular-nums; text-align:end}
+
+  .tag{display:inline-block; padding:2px 9px; border-radius:20px; font-size:12px;
+    font-weight:600}
+  .tag.ok{background:var(--ok-bg);color:var(--ok)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+  .tag.bad{background:var(--bad-bg);color:var(--bad)}
+  .tag.info{background:var(--info-bg);color:var(--accent)}
+
+  .banner{padding:11px 15px; border-radius:9px; margin-bottom:14px; font-size:13.5px}
+  .banner.bad{background:var(--bad-bg); color:var(--bad);
+    border:1px solid #edc9c9; font-weight:600}
+  .banner.warn{background:var(--warn-bg); color:var(--warn); border:1px solid #f0debb}
+
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end}
+  .row .field{margin-bottom:0; min-width:150px}
+  .hide{display:none !important}
+  .muted{color:var(--muted)}
+  .err{color:var(--bad); font-size:13px; margin-top:8px; min-height:18px}
+  .hint{background:var(--info-bg); padding:10px 13px; border-radius:8px;
+    font-size:12.5px; color:var(--accent); margin-bottom:12px}
+  a.tel{color:var(--accent2); text-decoration:none; font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="box">
+    <h1>የሰራተኞች ተገኝነት መቆጣጠሪያ ስርዓት</h1>
+    <p>የወልቃይት ወረዳ አስተዳደር</p>
+    <div class="field"><label>የተጠቃሚ ስም</label><input id="u" autocomplete="username"></div>
+    <div class="field"><label>የይለፍ ቃል</label><input id="p" type="password" autocomplete="current-password"></div>
+    <button class="btn" style="width:100%" onclick="doLogin()">ግባ</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="shell" id="shell">
+  <nav>
+    <div class="brand"><b>የተገኝነት ስርዓት</b><span>የወልቃይት ወረዳ አስተዳደር</span></div>
+    <a data-v="dashboard" class="on">ዳሽቦርድ</a>
+    <a data-v="employees">ሰራተኞች</a>
+    <a data-v="leave">ፈቃድ</a>
+    <a data-v="workload">የስራ ክፍፍል</a>
+    <a data-v="calendar">የቀን መቁጠሪያ</a>
+    <a data-v="reports">ሪፖርቶች</a>
+    <a data-v="admin" id="navAdmin">ቅንብሮች</a>
+    <div class="who"><div id="whoName"></div><div id="whoRole" style="opacity:.75"></div>
+      <a style="padding:8px 0;border:0" onclick="doLogout()">ውጣ</a></div>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="v-dashboard">
+      <div class="head"><div><h2>ዳሽቦርድ</h2>
+        <div class="sub" id="dDate">—</div></div>
+        <button class="btn ghost sm" onclick="loadDashboard()">አድስ</button></div>
+      <div id="dBanners"></div>
+      <div class="cards" id="dCards"></div>
+      <div class="panel"><h3>ቀጣይ በዓላትና መርሃ ግብሮች</h3>
+        <div id="dHolidays" class="muted">—</div></div>
+      <div class="panel"><h3>የዛሬ ተገኝነት</h3>
+        <div class="scroll"><table>
+          <thead><tr><th>የሰራተኛ ስም</th><th>የስራ መደብ</th><th>የመግቢያ ሰዓት</th>
+            <th>የመውጫ ሰዓት</th><th class="num">የሰራው ሰዓት</th><th>ሁኔታ</th></tr></thead>
+          <tbody id="dRows"></tbody></table></div></div>
+    </section>
+
+    <!-- EMPLOYEES -->
+    <section id="v-employees" class="hide">
+      <div class="head"><div><h2>ሰራተኞች</h2><div class="sub" id="eCount"></div></div>
+        <button class="btn sm" onclick="toggle('eForm')">አዲስ ሰራተኛ</button></div>
+      <div class="panel hide" id="eForm">
+        <h3>አዲስ ሰራተኛ</h3>
+        <div class="row">
+          <div class="field"><label>የሰራተኛ መለያ ቁጥር</label><input id="eCode"></div>
+          <div class="field"><label>ሙሉ ስም (በአማርኛ)</label><input id="eName"></div>
+          <div class="field"><label>ስም (በላቲን)</label><input id="eLatin"></div>
+          <div class="field"><label>የስራ መደብ</label><input id="ePos"></div>
+          <div class="field"><label>ስልክ ቁጥር</label><input id="ePhone"></div>
+          <div class="field"><label>የፒን ኮድ</label><input id="ePin" maxlength="8"></div>
+          <button class="btn" onclick="addEmployee()">አስቀምጥ</button>
+        </div>
+        <div class="err" id="eErr"></div>
+      </div>
+      <div class="panel"><div class="scroll"><table>
+        <thead><tr><th>መለያ</th><th>ሙሉ ስም</th><th>የስራ መደብ</th><th>ስልክ</th>
+          <th class="num">ፎቶዎች</th><th>ሁኔታ</th></tr></thead>
+        <tbody id="eRows"></tbody></table></div></div>
+    </section>
+
+    <!-- LEAVE -->
+    <section id="v-leave" class="hide">
+      <div class="head"><div><h2>ፈቃድ</h2><div class="sub">የፈቃድ ጥያቄዎችና ውሳኔዎች</div></div>
+        <button class="btn sm" onclick="toggle('lForm')">አዲስ የፈቃድ ጥያቄ</button></div>
+      <div class="panel hide" id="lForm">
+        <div class="hint">በፈቃድ ላይ እያሉ ተግባርዎን ለሌላ ሰራተኛ ካስተላለፉና ተግባሩ ከተጠናቀቀ፣
+          ቀኑ እንደሰሩበት ይቆጠራል። ይህ አማራጭ ነው።</div>
+        <div class="row">
+          <div class="field"><label>ሰራተኛ</label><select id="lEmp"></select></div>
+          <div class="field"><label>የፈቃድ ዓይነት</label><select id="lType">
+            <option value="annual">ዓመታዊ ፈቃድ</option>
+            <option value="sick">የህመም ፈቃድ</option>
+            <option value="maternity">የወሊድ ፈቃድ</option>
+            <option value="paternity">የአባትነት ፈቃድ</option>
+            <option value="official">በስራ ጉዳይ</option>
+            <option value="unpaid">ያለክፍያ ፈቃድ</option></select></div>
+          <div class="field"><label>ከቀን</label><input id="lFrom" type="date"></div>
+          <div class="field"><label>እስከ ቀን</label><input id="lTo" type="date"></div>
+          <div class="field"><label>ምክንያት</label><input id="lReason"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="field" style="flex:2"><label>የተግባሩ መግለጫ (አማራጭ)</label>
+            <input id="lTask" placeholder="ለምሳሌ፦ የደንበኛ ፋይሎችን ማደራጀት"></div>
+          <div class="field"><label>ለማን</label><select id="lTo2">
+            <option value="">— አይተላለፍም —</option></select></div>
+          <button class="btn" onclick="addLeave()">አስቀምጥ</button>
+        </div>
+        <div class="err" id="lErr"></div>
+      </div>
+      <div class="panel"><div class="scroll"><table>
+        <thead><tr><th>ሰራተኛ</th><th>ዓይነት</th><th>ከቀን</th><th>እስከ ቀን</th>
+          <th class="num">ቀናት</th><th>ተግባር</th><th>ሁኔታ</th><th></th></tr></thead>
+        <tbody id="lRows"></tbody></table></div></div>
+    </section>
+
+    <!-- WORKLOAD -->
+    <section id="v-workload" class="hide">
+      <div class="head"><div><h2>የስራ ክፍፍል</h2>
+        <div class="sub" id="wDate">ዛሬ ያሉ ሰራተኞች</div></div>
+        <button class="btn ghost sm" onclick="loadWorkload()">አድስ</button></div>
+      <div class="hint">ክፍት ተግባራት ዝቅተኛ የሆነላቸው ሰራተኞች መጀመሪያ ይታያሉ።
+        ይህ ተግባሩ በጥቂት ሰዎች ላይ እንዳይከማች ይረዳል።</div>
+      <div class="panel"><div class="scroll"><table>
+        <thead><tr><th>የሰራተኛ ስም</th><th>የስራ መደብ</th><th>ሁኔታ</th>
+          <th class="num">ክፍት ተግባራት</th><th>ስልክ</th></tr></thead>
+        <tbody id="wRows"></tbody></table></div></div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section id="v-calendar" class="hide">
+      <div class="head"><div><h2>የቀን መቁጠሪያ</h2>
+        <div class="sub">የስራ ቀናት፣ በዓላትና መርሃ ግብሮች</div></div></div>
+      <div class="hint">ፋሲካ፣ ዒድ አል ፈጥር፣ ዒድ አል አድሃ እና መውሊድ በየዓመቱ ስለሚቀያየሩ
+        በአስተዳዳሪ መግባት አለባቸው።</div>
+      <div class="panel">
+        <div class="row">
+          <div class="field"><label>ዓመት</label><input id="cYear" type="number" style="width:110px"></div>
+          <div class="field"><label>ወር</label><select id="cMonth"></select></div>
+          <button class="btn ghost sm" onclick="loadCalendar()">አሳይ</button>
+        </div>
+      </div>
+      <div class="panel"><div class="scroll"><table>
+        <thead><tr><th>ቀን</th><th>ዕለት</th><th>የቀን ዓይነት</th>
+          <th class="num">የሚጠበቅ ሰዓት</th><th>ማስታወሻ</th><th></th></tr></thead>
+        <tbody id="cRows"></tbody></table></div></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="v-reports" class="hide">
+      <div class="head"><div><h2>ሪፖርቶች</h2>
+        <div class="sub">በኢትዮጵያ የቀን አቆጣጠር መሰረት</div></div></div>
+      <div class="panel">
+        <div class="row">
+          <div class="field"><label>የሪፖርት ዓይነት</label><select id="rKind">
+            <option value="daily">የዕለት ተገኝነት መዝገብ</option>
+            <option value="monthly">ወርሃዊ ማጠቃለያ</option>
+            <option value="absence">የቀሪዎች ሪፖርት</option>
+            <option value="leave">የፈቃድ ማጠቃለያ</option>
+            <option value="exception">የልዩ ሁኔታዎች መዝገብ</option>
+            <option value="tasks">የተግባር ክፍፍል ሪፖርት</option></select></div>
+          <div class="field" id="fMonth"><label>ወር</label><select id="rMonth"></select></div>
+          <div class="field" id="fYear"><label>ዓመት</label><input id="rYear" type="number" style="width:110px"></div>
+          <div class="field hide" id="fStart"><label>ከቀን</label><input id="rStart" type="date"></div>
+          <div class="field hide" id="fEnd"><label>እስከ ቀን</label><input id="rEnd" type="date"></div>
+          <button class="btn" onclick="runReport()">ሪፖርት አውጣ</button>
+          <button class="btn ghost" onclick="exportReport('pdf')">ወደ ፒዲኤፍ</button>
+          <button class="btn ghost" onclick="exportReport('excel')">ወደ ኤክሴል</button>
+        </div>
+      </div>
+      <div class="panel" id="rPanel"><h3 id="rTitle">—</h3>
+        <div class="sub muted" id="rPeriod"></div>
+        <div class="scroll" style="margin-top:10px"><table>
+          <thead id="rHead"></thead><tbody id="rBody"></tbody></table></div>
+        <div id="rTotals" class="muted" style="margin-top:10px"></div></div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="v-admin" class="hide">
+      <div class="head"><div><h2>ቅንብሮች</h2><div class="sub">የስርዓት አስተዳደር</div></div></div>
+      <div class="panel"><h3>ምትኬ</h3>
+        <p class="muted" style="margin-bottom:10px">ምትኬ ከተሰራ በኋላ ተረጋግጦ ይመዘገባል።</p>
+        <button class="btn" onclick="runBackup()">አሁን ምትኬ ስራ</button>
+        <div id="bkOut" class="muted" style="margin-top:10px"></div></div>
+      <div class="panel"><h3>የፊት መለያ ማስተካከያ</h3>
+        <p class="muted" style="margin-bottom:10px">
+          መስፈርቱ በተመዘገቡት ሰራተኞች ላይ ተመስርቶ ይሰላል። የስህተት መጠኑ ከ2% በላይ ከሆነ
+          ሰራተኞችን እንደገና ይመዝግቡ — መስፈርቱን ዝቅ አያድርጉ።</p>
+        <button class="btn" onclick="calibrate()">አስተካክል</button>
+        <div id="calOut" class="muted" style="margin-top:10px"></div></div>
+      <div class="panel"><h3>የስርዓት ጤና</h3>
+        <button class="btn ghost" onclick="health()">አረጋግጥ</button>
+        <div id="hOut" class="muted" style="margin-top:10px"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const MONTHS = ["መስከረም","ጥቅምት","ኅዳር","ታኅሣሥ","ጥር","የካቲት","መጋቢት",
+                "ሚያዝያ","ግንቦት","ሰኔ","ሐምሌ","ነሐሴ","ጳጉሜ"];
+let ME = null, EMPLOYEES = [], LAST_REPORT = null;
+
+async function api(path, opts){
+  const res = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts||{}));
+  if(res.status === 401){ $("shell").classList.remove("on"); $("login").style.display="flex"; throw new Error("auth"); }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.detail || "ስህተት ተከስቷል");
+  return data;
+}
+
+async function doLogin(){
+  $("loginErr").textContent = "";
+  try{
+    ME = await api("/api/login", {method:"POST",
+      body: JSON.stringify({username:$("u").value, password:$("p").value})});
+    $("login").style.display = "none";
+    $("shell").classList.add("on");
+    $("whoName").textContent = ME.display_name_am || ME.username;
+    $("whoRole").textContent = ME.role_label_am;
+    if(ME.role !== "admin") $("navAdmin").style.display = "none";
+    initPickers();
+    loadDashboard();
+  }catch(e){ $("loginErr").textContent = e.message; }
+}
+$("p").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+
+async function doLogout(){
+  await api("/api/logout", {method:"POST"});
+  location.reload();
+}
+
+document.querySelectorAll("nav a[data-v]").forEach(a => {
+  a.addEventListener("click", () => {
+    document.querySelectorAll("nav a[data-v]").forEach(x=>x.classList.remove("on"));
+    a.classList.add("on");
+    const v = a.dataset.v;
+    document.querySelectorAll("main section").forEach(s=>s.classList.add("hide"));
+    $("v-"+v).classList.remove("hide");
+    ({dashboard:loadDashboard, employees:loadEmployees, leave:loadLeave,
+      workload:loadWorkload, calendar:loadCalendar}[v] || (()=>{}))();
+  });
+});
+const toggle = id => $(id).classList.toggle("hide");
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function initPickers(){
+  const ethYear = 2019;   // replaced by the first dashboard response
+  [["cMonth"],["rMonth"]].forEach(([id]) => {
+    $(id).innerHTML = MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+  });
+  $("cYear").value = ethYear; $("rYear").value = ethYear;
+}
+
+/* -- dashboard -- */
+async function loadDashboard(){
+  const d = await api("/api/dashboard");
+  $("dDate").textContent = d.date_am + " — " + d.day_type_am;
+  const b = [];
+  if(d.backup.stale) b.push(`<div class="banner bad">ማስጠንቀቂያ፦ ምትኬ ከ48 ሰዓት በላይ አልተሰራም</div>`);
+  if(d.clock_anomalies) b.push(`<div class="banner warn">ማስጠንቀቂያ፦ የስርዓቱ ሰዓት ${d.clock_anomalies} ጊዜ ተቀይሯል</div>`);
+  if(d.pending_leave) b.push(`<div class="banner warn">${d.pending_leave} የፈቃድ ጥያቄ በመጠባበቅ ላይ</div>`);
+  $("dBanners").innerHTML = b.join("");
+  $("dCards").innerHTML = `
+    <div class="card"><div class="n">${d.total_staff}</div><div class="l">ጠቅላላ ሰራተኞች</div></div>
+    <div class="card ok"><div class="n">${d.counts.present}</div><div class="l">የተገኙ</div></div>
+    <div class="card bad"><div class="n">${d.counts.absent}</div><div class="l">ያልተገኙ</div></div>
+    <div class="card warn"><div class="n">${d.counts.on_leave}</div><div class="l">በፈቃድ ላይ</div></div>
+    <div class="card warn"><div class="n">${d.counts.incomplete}</div><div class="l">ያልተሟሉ መዝገቦች</div></div>
+    ${d.counts.other ? `<div class="card"><div class="n">${d.counts.other}</div>
+      <div class="l">${esc(d.day_type_am)}</div></div>` : ""}`;
+  $("dHolidays").innerHTML = d.upcoming_holidays.length
+    ? d.upcoming_holidays.map(h=>`<div>${esc(h.name_am)} — <span class="muted">${esc(h.date_am)} (በ${h.days_away} ቀን)</span></div>`).join("")
+    : "ቀጣይ በዓል የለም";
+  const cls = {worked:"ok", absent:"bad", on_leave:"warn", leave_covered:"warn",
+               incomplete:"warn", holiday:"info", day_off:"info", event:"info", outage:"warn"};
+  $("dRows").innerHTML = d.rows.map(r=>`<tr>
+    <td>${esc(r.name_am)}</td><td class="muted">${esc(r.position_am)}</td>
+    <td class="num">${r.in||"—"}</td><td class="num">${r.out||"—"}</td>
+    <td class="num">${r.worked.toFixed(2)}</td>
+    <td><span class="tag ${cls[r.status]||"info"}">${esc(r.status_am)}</span></td></tr>`).join("");
+}
+
+/* -- employees -- */
+async function loadEmployees(){
+  EMPLOYEES = await api("/api/employees");
+  $("eCount").textContent = EMPLOYEES.length + " ሰራተኞች";
+  $("eRows").innerHTML = EMPLOYEES.map(e=>`<tr>
+    <td>${esc(e.employee_code)}</td><td>${esc(e.name_am)}</td>
+    <td class="muted">${esc(e.position_am)}</td>
+    <td><a class="tel" href="tel:${esc(e.phone)}">${esc(e.phone)||"—"}</a></td>
+    <td class="num">${e.faces}</td>
+    <td><span class="tag ${e.active?"ok":"bad"}">${e.active?"ንቁ":"ንቁ ያልሆነ"}</span></td></tr>`).join("");
+  const opts = EMPLOYEES.map(e=>`<option value="${e.id}">${esc(e.name_am)}</option>`).join("");
+  if($("lEmp")) $("lEmp").innerHTML = opts;
+  if($("lTo2")) $("lTo2").innerHTML = `<option value="">— አይተላለፍም —</option>` + opts;
+}
+async function addEmployee(){
+  $("eErr").textContent = "";
+  try{
+    await api("/api/employees", {method:"POST", body: JSON.stringify({
+      employee_code:$("eCode").value, name_am:$("eName").value,
+      name_latin:$("eLatin").value, position_am:$("ePos").value,
+      phone:$("ePhone").value, pin:$("ePin").value||null})});
+    ["eCode","eName","eLatin","ePos","ePhone","ePin"].forEach(i=>$(i).value="");
+    loadEmployees();
+  }catch(e){ $("eErr").textContent = e.message; }
+}
+
+/* -- leave -- */
+async function loadLeave(){
+  if(!EMPLOYEES.length) await loadEmployees();
+  const rows = await api("/api/leave");
+  const cls = {approved:"ok", pending:"warn", rejected:"bad", cancelled:"info"};
+  $("lRows").innerHTML = rows.map(r=>`<tr>
+    <td>${esc(r.name_am)}</td><td>${esc(r.leave_type_am)}</td>
+    <td class="num">${esc(r.start_am)}</td><td class="num">${esc(r.end_am)}</td>
+    <td class="num">${r.days}</td>
+    <td>${r.task ? `<span class="tag ${r.task.complete?"ok":"warn"}">${esc(r.task.status_am)}</span>` : "—"}</td>
+    <td><span class="tag ${cls[r.status]}">${esc(r.status_am)}</span></td>
+    <td>${r.status==="pending" ? `
+      <button class="btn sm ok" onclick="decide(${r.id},true)">አጽድቅ</button>
+      <button class="btn sm bad" onclick="decide(${r.id},false)">ውድቅ</button>` :
+      (r.task && !r.task.complete ?
+        `<button class="btn sm" onclick="confirmTask(${r.task.id})">ተጠናቋል</button>` : "")}
+    </td></tr>`).join("");
+}
+async function addLeave(){
+  $("lErr").textContent = "";
+  try{
+    await api("/api/leave", {method:"POST", body: JSON.stringify({
+      employee_id: +$("lEmp").value, leave_type: $("lType").value,
+      start_date: $("lFrom").value, end_date: $("lTo").value,
+      reason: $("lReason").value,
+      task_description: $("lTask").value || null,
+      task_delegated_to: $("lTo2").value ? +$("lTo2").value : null})});
+    $("lTask").value=""; $("lReason").value="";
+    loadLeave();
+  }catch(e){ $("lErr").textContent = e.message; }
+}
+const decide = (id,ok) => api(`/api/leave/${id}/decide?approve=${ok}`,{method:"POST"}).then(loadLeave);
+const confirmTask = id => api(`/api/task/${id}/confirm?completed=true`,{method:"POST"}).then(loadLeave);
+
+/* -- workload -- */
+async function loadWorkload(){
+  const d = await api("/api/availability");
+  $("wDate").textContent = d.date_am;
+  $("wRows").innerHTML = d.rows.map(r=>`<tr>
+    <td>${esc(r.name_am)}</td><td class="muted">${esc(r.position_am)}</td>
+    <td><span class="tag ${r.available?"ok":"warn"}">${esc(r.status_am)}</span></td>
+    <td class="num">${r.open_tasks}</td>
+    <td><a class="tel" href="tel:${esc(r.phone)}">${esc(r.phone)||"—"}</a></td></tr>`).join("");
+}
+
+/* -- calendar -- */
+async function loadCalendar(){
+  const d = await api(`/api/calendar?eth_year=${$("cYear").value}&eth_month=${$("cMonth").value}`);
+  const cls = {full:"ok", half_am:"warn", half_pm:"warn", off:"info",
+               holiday:"bad", event:"info"};
+  $("cRows").innerHTML = d.days.map(x=>`<tr>
+    <td class="num">${x.eth_day}</td><td>${esc(x.weekday_am)}</td>
+    <td><span class="tag ${cls[x.day_type]}">${esc(x.day_type_am)}</span></td>
+    <td class="num">${x.expected_hours}</td>
+    <td class="muted">${esc(x.reason_am)}</td>
+    <td><select class="btn sm ghost" onchange="setDay('${x.gregorian}',this.value)">
+      <option value="">ቀይር…</option>
+      <option value="full">ሙሉ የስራ ቀን</option>
+      <option value="half_am">ግማሽ ቀን (ጥዋት)</option>
+      <option value="half_pm">ግማሽ ቀን (ከሰዓት)</option>
+      <option value="off">የእረፍት ቀን</option>
+      <option value="holiday">የህዝብ በዓል</option>
+      <option value="event">የመርሃ ግብር ቀን</option></select></td></tr>`).join("");
+}
+async function setDay(d, type){
+  if(!type) return;
+  const note = prompt("ማስታወሻ (አማራጭ)") || "";
+  await api("/api/calendar/day", {method:"POST",
+    body: JSON.stringify({work_date:d, day_type:type, note_am:note})});
+  loadCalendar();
+}
+
+/* -- reports -- */
+$("rKind").addEventListener("change", () => {
+  const k = $("rKind").value;
+  const period = ["absence","exception","tasks"].includes(k);
+  $("fStart").classList.toggle("hide", !period);
+  $("fEnd").classList.toggle("hide", !period);
+  $("fMonth").classList.toggle("hide", k !== "monthly");
+});
+function reportQuery(){
+  const k = $("rKind").value;
+  const p = new URLSearchParams();
+  if(k === "monthly"){ p.set("eth_year",$("rYear").value); p.set("eth_month",$("rMonth").value); }
+  else if(k === "leave"){ p.set("eth_year",$("rYear").value); }
+  else if($("rStart").value){ p.set("start",$("rStart").value); p.set("end",$("rEnd").value); }
+  return p.toString();
+}
+async function runReport(){
+  const k = $("rKind").value;
+  const d = await api(`/api/reports/${k}?${reportQuery()}`);
+  LAST_REPORT = d;
+  $("rTitle").textContent = d.title_am;
+  $("rPeriod").textContent = d.period_am || "";
+  $("rHead").innerHTML = `<tr>${d.columns.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;
+  $("rBody").innerHTML = d.rows.length
+    ? d.rows.map(r=>`<tr>${d.columns.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${d.columns.length}" class="muted">በዚህ ጊዜ ውስጥ መዝገብ የለም</td></tr>`;
+  $("rTotals").textContent = d.totals
+    ? Object.entries(d.totals).map(([k2,v])=>`${k2}: ${v}`).join("  ·  ") : "";
+}
+function exportReport(fmt){
+  window.open(`/api/reports/${$("rKind").value}/export?fmt=${fmt}&${reportQuery()}`, "_blank");
+}
+
+/* -- admin -- */
+async function runBackup(){
+  $("bkOut").textContent = "በመስራት ላይ...";
+  try{
+    const d = await api("/api/admin/backup", {method:"POST"});
+    $("bkOut").innerHTML = `<span class="tag ok">ተረጋግጧል</span> ${esc(d.destination)} — ${(d.bytes/1024).toFixed(0)} KB`;
+  }catch(e){ $("bkOut").innerHTML = `<span class="tag bad">${esc(e.message)}</span>`; }
+}
+async function calibrate(){
+  $("calOut").textContent = "በመስላት ላይ...";
+  const d = await api("/api/admin/calibrate", {method:"POST"});
+  $("calOut").innerHTML = `መስፈርት፦ <b>${d.threshold}</b> · የስህተት መጠን፦
+    ${(d.false_reject_rate*100).toFixed(1)}% · ${esc(d.advice_am)}`;
+}
+async function health(){
+  const d = await api("/api/health");
+  $("hOut").innerHTML = `
+    <div>መረጃ ቋት፦ <span class="tag ${d.database_ok?"ok":"bad"}">${d.database_ok?"ጤናማ":"ችግር አለ"}</span></div>
+    <div>የመዝገብ ሰንሰለት፦ <span class="tag ${d.hash_chain_ok?"ok":"bad"}">${d.hash_chain_ok?"ጤናማ":"ተቀይሯል"}</span></div>
+    <div>ሰዓት፦ <span class="tag ${d.clock_ok?"ok":"warn"}">${d.clock_ok?"ትክክል":"ተቀይሯል"}</span></div>
+    <div>የተመዘገቡ ፎቶዎች፦ ${d.enrolled_embeddings}</div>`;
+}
+</script>
+</body>
+</html>

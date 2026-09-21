@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>የተገኝነት መመዝገቢያ</title>
+<style>
+  /* Bundled locally — the machine is offline, so no web font can load. */
+  :root{
+    --bg:#0f1b2d; --panel:#16273f; --line:#24406a;
+    --ink:#eef3fa; --muted:#9db0cb;
+    --ok:#2fa36b; --warn:#d99b2b; --bad:#c44a4a; --accent:#4b8bd6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Noto Sans Ethiopic","Abyssinica SIL","Nyala",sans-serif;
+    background:var(--bg); color:var(--ink);
+    height:100vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    /* A kiosk in a corridor: no text selection, no context menu, no zoom. */
+    user-select:none; -webkit-user-select:none;
+  }
+  header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 28px; border-bottom:1px solid var(--line); background:var(--panel);
+  }
+  .office{font-size:17px; font-weight:600}
+  .date{font-size:15px; color:var(--muted)}
+  .clock{font-size:26px; font-variant-numeric:tabular-nums; font-weight:600}
+
+  main{flex:1; display:flex; align-items:center; justify-content:center; padding:20px}
+  .stage{width:min(880px,94vw); text-align:center}
+
+  .video-wrap{
+    position:relative; width:min(460px,80vw); aspect-ratio:4/3; margin:0 auto 22px;
+    border-radius:16px; overflow:hidden; background:#000;
+    border:3px solid var(--line);
+  }
+  video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .video-wrap.ok{border-color:var(--ok)} .video-wrap.bad{border-color:var(--bad)}
+
+  .prompt{font-size:30px; font-weight:600; line-height:1.5; min-height:46px}
+  .sub{font-size:19px; color:var(--muted); margin-top:10px; min-height:28px}
+
+  .result{padding:26px 20px; border-radius:16px; background:var(--panel);
+    border:2px solid var(--line); display:none}
+  .result.show{display:block}
+  .result.ok{border-color:var(--ok)} .result.bad{border-color:var(--bad)}
+  .name{font-size:38px; font-weight:700; margin-bottom:8px}
+  .time{font-size:52px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent); margin:8px 0}
+
+  .pin-pad{display:none; max-width:340px; margin:0 auto}
+  .pin-pad.show{display:block}
+  .pin-display{
+    font-size:38px; letter-spacing:14px; height:62px; line-height:62px;
+    background:var(--panel); border:2px solid var(--line); border-radius:12px;
+    margin-bottom:14px; font-variant-numeric:tabular-nums;
+  }
+  .keys{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .keys button{
+    font-family:inherit; font-size:26px; padding:16px 0; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    cursor:pointer;
+  }
+  .keys button:active{background:var(--accent)}
+  .keys .wide{grid-column:span 3; font-size:19px}
+
+  .closed{padding:50px 24px}
+  .closed .big{font-size:40px; font-weight:700; margin-bottom:14px}
+  .closed .why{font-size:24px; color:var(--warn)}
+
+  footer{
+    padding:10px 28px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between;
+    font-size:13px; color:var(--muted); background:var(--panel);
+  }
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+    background:var(--bad); margin-inline-end:6px}
+  .dot.on{background:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="office">የወልቃይት ወረዳ አስተዳደር</div>
+    <div class="date" id="date">—</div>
+  </div>
+  <div class="clock" id="clock">--:--</div>
+</header>
+
+<main>
+  <div class="stage">
+    <!-- open -->
+    <div id="scanView">
+      <div class="video-wrap" id="videoWrap"><video id="video" autoplay muted playsinline></video></div>
+      <div class="prompt" id="prompt">እባክዎ ወደ ካሜራው ይመልከቱ</div>
+      <div class="sub" id="sub"></div>
+    </div>
+
+    <!-- result -->
+    <div class="result" id="result">
+      <div class="name" id="rName"></div>
+      <div class="time" id="rTime"></div>
+      <div class="sub" id="rMsg"></div>
+    </div>
+
+    <!-- pin fallback -->
+    <div class="pin-pad" id="pinPad">
+      <div class="prompt" style="font-size:22px;margin-bottom:14px">የፒን ኮድ ያስገቡ</div>
+      <input id="empCode" placeholder="የሰራተኛ መለያ ቁጥር" style="width:100%;padding:12px;
+        font-family:inherit;font-size:18px;border-radius:10px;border:1px solid #24406a;
+        background:#16273f;color:#eef3fa;margin-bottom:10px;text-align:center">
+      <div class="pin-display" id="pinDisplay"></div>
+      <div class="keys">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="del">⌫</button><button data-k="0">0</button><button data-k="ok">✓</button>
+        <button class="wide" data-k="cancel">ተወው</button>
+      </div>
+    </div>
+
+    <!-- closed -->
+    <div class="closed" id="closedView" style="display:none">
+      <div class="big">ዛሬ የስራ ቀን አይደለም</div>
+      <div class="why" id="closedWhy"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div><span class="dot" id="camDot"></span><span id="camText">ካሜራ</span></div>
+  <div id="enrolled">—</div>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const SCAN_MS = 1400;          // how often a frame is sent while idle
+const RESULT_MS = 3200;        // how long a confirmation stays on screen
+let busy = false, pin = "", mode = "scan", stream = null;
+
+/* A kiosk in a public corridor is an open computer unless it is locked
+   down. Blocking the context menu and the usual escape keys is the
+   front-end half of that; the other half is the restricted Windows
+   account the kiosk browser runs under. */
+document.addEventListener("contextmenu", e => e.preventDefault());
+document.addEventListener("keydown", e => {
+  if (["F11","F12","F5"].includes(e.key) ||
+      (e.ctrlKey && ["r","w","n","t","p","s","u"].includes(e.key.toLowerCase()))) {
+    e.preventDefault();
+  }
+});
+
+function tickClock(){
+  const d = new Date();
+  $("clock").textContent =
+    String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+setInterval(tickClock, 1000); tickClock();
+
+async function status(){
+  try{
+    const s = await (await fetch("/api/kiosk/status")).json();
+    $("date").textContent = s.date_am;
+    $("enrolled").textContent = "የተመዘገቡ: " + s.enrolled;
+    if(!s.open){
+      mode = "closed";
+      $("scanView").style.display = "none";
+      $("pinPad").classList.remove("show");
+      $("closedView").style.display = "block";
+      $("closedWhy").textContent = s.reason_am;
+      stopCamera();
+    } else if(mode === "closed"){
+      mode = "scan";
+      $("closedView").style.display = "none";
+      $("scanView").style.display = "block";
+      startCamera();
+    }
+  }catch(e){ /* the service is restarting; the next poll recovers */ }
+}
+setInterval(status, 20000); status();
+
+async function startCamera(){
+  if(stream) return;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:1280}, height:{ideal:720}}
+    });
+    $("video").srcObject = stream;
+    $("camDot").classList.add("on");
+    $("camText").textContent = "ካሜራ ዝግጁ";
+  }catch(e){
+    $("camDot").classList.remove("on");
+    $("camText").textContent = "ካሜራ አልተገኘም";
+    $("prompt").textContent = "ካሜራው አልተገኘም። ለአስተዳዳሪ ያሳውቁ።";
+    $("sub").textContent = "የፒን ኮድ መጠቀም ይችላሉ";
+    showPin();
+  }
+}
+function stopCamera(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  $("camDot").classList.remove("on");
+}
+
+function grabFrame(){
+  const v = $("video");
+  if(!v.videoWidth) return null;
+  const c = document.createElement("canvas");
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+
+function showResult(ok, name, time, msg){
+  $("scanView").style.display = "none";
+  $("pinPad").classList.remove("show");
+  const r = $("result");
+  r.classList.add("show");
+  r.classList.toggle("ok", ok);
+  r.classList.toggle("bad", !ok);
+  $("rName").textContent = name || "";
+  $("rTime").textContent = time || "";
+  $("rMsg").textContent = msg || "";
+  setTimeout(resetView, RESULT_MS);
+}
+
+function resetView(){
+  $("result").classList.remove("show","ok","bad");
+  $("pinPad").classList.remove("show");
+  pin = ""; $("pinDisplay").textContent = "";
+  if(mode !== "closed"){
+    $("scanView").style.display = "block";
+    $("prompt").textContent = "እባክዎ ወደ ካሜራው ይመልከቱ";
+    $("sub").textContent = "";
+    $("videoWrap").className = "video-wrap";
+  }
+  busy = false;
+}
+
+function showPin(){
+  $("scanView").style.display = "none";
+  $("result").classList.remove("show");
+  $("pinPad").classList.add("show");
+}
+
+async function punch(payload){
+  busy = true;
+  $("prompt").textContent = "በመለየት ላይ...";
+  try{
+    const res = await fetch("/api/kiosk/punch", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if(d.ok){
+      $("videoWrap").className = "video-wrap ok";
+      showResult(true, d.name_am, d.time, d.greeting_am + " — " + d.message_am);
+    } else {
+      $("videoWrap").className = "video-wrap bad";
+      if(d.offer_pin){
+        $("prompt").textContent = d.message_am;
+        $("sub").textContent = "የፒን ኮድዎን ይጠቀሙ";
+        setTimeout(()=>{ showPin(); busy = false; }, 1200);
+        return;
+      }
+      showResult(false, d.name_am || "", "", d.message_am);
+    }
+  }catch(e){
+    showResult(false, "", "", "የስርዓት ችግር። ለአስተዳዳሪ ያሳውቁ።");
+  }
+}
+
+setInterval(() => {
+  if(busy || mode !== "scan" || !stream) return;
+  if($("pinPad").classList.contains("show")) return;
+  const img = grabFrame();
+  if(img) punch({image_b64: img});
+}, SCAN_MS);
+
+document.querySelectorAll(".keys button").forEach(b => {
+  b.addEventListener("click", () => {
+    const k = b.dataset.k;
+    if(k === "del") pin = pin.slice(0,-1);
+    else if(k === "cancel") return resetView();
+    else if(k === "ok"){
+      if(pin.length >= 4 && $("empCode").value.trim()){
+        punch({pin, employee_code: $("empCode").value.trim()});
+      }
+      return;
+    }
+    else if(pin.length < 8) pin += k;
+    $("pinDisplay").textContent = "•".repeat(pin.length);
+  });
+});
+
+startCamera();
+</script>
+</body>
+</html>
